@@ -23,9 +23,13 @@ def furi(sent):
     yomi = MeCab.Tagger('-Oyomi')
     parsed = wakati.parse(sent.encode('utf8')).decode('utf8')
     words = parsed.split()
-    furi = ''
-    for word in words:
-        furi += word + '[' + yomi.parse(word.encode('utf8')).decode('utf-8') + '] '
+    furi = ' '.join(
+        '%s[%s]' % (
+            word, 
+            yomi.parse(word.encode('utf8')).decode('utf-8')
+            ) 
+        for word in words
+        )
     return furi
 
 run(host='localhost', port=8080)
