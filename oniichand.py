@@ -10,14 +10,14 @@ def parse(sent):
     return parsed
 
 @route('/kana/<sent>')
-def parse(sent):
+def kana(sent):
     sent = urllib.unquote(sent).decode('utf8')
     tagger = MeCab.Tagger('-Oyomi')
     kana = tagger.parse(sent.encode('utf8')).decode('utf8')
     return kana
 
 @route('/furi/<sent>')
-def parse(sent):
+def furi(sent):
     sent = urllib.unquote(sent).decode('utf8')
     wakati = MeCab.Tagger('-Owakati')
     yomi = MeCab.Tagger('-Oyomi')
