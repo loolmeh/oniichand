@@ -8,4 +8,4 @@ dependencies
 
 * bottle.py
 * python-mecab
-* urllib
+* python-daemon

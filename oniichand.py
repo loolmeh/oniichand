@@ -1,6 +1,9 @@
 from bottle import route, run
+from daemon import runner
 import urllib
 import MeCab
+import re
+import os
 
 @route('/parse/<sent>')
 def parse(sent):
@@ -30,6 +33,22 @@ def furi(sent):
             ) 
         for word in words
         )
+    furi = re.sub(r'\s\]', ']', furi)
     return furi
+    
+class App():
 
-run(host='localhost', port=8080)
+
+    def __init__(self):
+        self.stdin_path = '/dev/null'
+        self.stdout_path = '/dev/tty'
+        self.stderr_path = '/dev/tty'
+        self.pidfile_path = os.path.dirname(os.path.abspath(__file__)) + '/oniichan.pid'
+        self.pidfile_timeout = 5
+
+    def run(self):
+        run(host='localhost', port=8080)
+
+app = App()
+d_runner = runner.DaemonRunner(app)
+d_runner.do_action()
