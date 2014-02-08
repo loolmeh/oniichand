@@ -5,7 +5,7 @@ import urllib
 import MeCab
 import re
 import logging
-
+import sys
 
 @route('/parse/<sent>')
 def parse(sent):
@@ -44,6 +44,23 @@ def furi(sent):
     return furi
 
 
+logger = logging.getLogger("DaemonLog")
+
+def set_logger():
+    log_set = SETTINGS['log_level']
+    if log_set == 'debug':
+        logger.setLevel(logging.DEBUG)
+    if log_set == 'warn':
+        logger.setLevel(logging.WARNING)
+    if log_set == 'info':
+        logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler = logging.FileHandler(SETTINGS['log_dir'])
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+    
+    
 class App():
 
     def __init__(self):
@@ -54,27 +71,15 @@ class App():
         self.pidfile_timeout = 5
 
     def run(self):
+        set_logger()
         run(host='localhost', port=8080)
-
 
 app = App()
 
-logger = logging.getLogger("DaemonLog")
 
-log_set = SETTINGS['log_level']
-if log_set == 'debug':
-    logger.setLevel(logging.DEBUG)
-if log_set == 'warn':
-    logger.setLevel(logging.WARNING)
-if log_set == 'info':
-    logger.setLevel(logging.INFO)
-
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-f = SETTINGS['log_dir']
-open(f, 'a').close()
-handler = logging.FileHandler(f)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-d_runner = runner.DaemonRunner(app)
-d_runner.do_action()
+if sys.argv[1] == 'normal':
+    set_logger()
+    run(host='localhost', port=8080)
+else:
+    d_runner = runner.DaemonRunner(app)
+    d_runner.do_action()
