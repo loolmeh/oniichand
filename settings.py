@@ -1,6 +1,7 @@
 import os
 
 SETTINGS = {
+    'port': 8080,
     'log_dir': os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
                     'oniichan.log'

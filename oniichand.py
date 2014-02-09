@@ -13,10 +13,10 @@ import os
 def parse(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Parse request for %s' % (sent))
-    sent = preprocess(sent)
+    sent = process(sent, 'pre')
     tagger = MeCab.Tagger('-Owakati')
     parsed = tagger.parse(sent.encode('utf8')).decode('utf8')
-    parsed = postprocess(parsed)
+    parsed = process(parsed)
     return parsed
 
 
@@ -24,10 +24,10 @@ def parse(sent):
 def kana(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Kana generation request for %s' % (sent))
-    sent = preprocess(sent)
+    sent = process(sent, 'pre')
     tagger = MeCab.Tagger('-Oyomi')
     kana = tagger.parse(sent.encode('utf8')).decode('utf8')
-    kana = postprocess(kana)
+    kana = process(kana)
     return kana
 
 
@@ -35,7 +35,7 @@ def kana(sent):
 def furi(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Furigana generation request for %s' % (sent))
-    sent = preprocess(sent)
+    sent = process(sent, 'pre')
     wakati = MeCab.Tagger('-Owakati')
     yomi = MeCab.Tagger('-Oyomi')
     parsed = wakati.parse(sent.encode('utf8')).decode('utf8')
@@ -48,7 +48,7 @@ def furi(sent):
         for word in words
         )
     furi = re.sub(r'\s\]', ']', furi)
-    furi = postprocess(furi)
+    furi = process(furi)
     return furi
 
 
@@ -80,22 +80,23 @@ def plugin_init():
     except OSError:
         plugin_list = []
         logger.error('Cannot find or open plugin directory.')
-    plugin_list = [item for item in plugin_list if re.compile(r'\.py$').match(item)]
+    plugin_list = [item for item in plugin_list if re.compile(r'.*\.py$').match(item)]
     plugin_list = [item.replace('.py', '') for item in plugin_list]
-    plugins = [import_module(item) for item in plugin_list]
+    logger.debug('Plugins loaded: %s' % (plugin_list))
+    global plugins
+    plugins = [import_module('plugins.' + item) for item in plugin_list]
 
 
-def preprocess(input):
+def process(input, mode='post'):
     output = input
     for plugin in plugins:
-        output = plugin.handle_pre(output)
-    return output
-
-
-def postprocess(input):
-    output = input
-    for plugin in plugins:
-        output = plugin.handle_post(output)
+        try:
+            if mode == 'pre':
+                output = plugin.handle_pre(output)
+            if mode == 'post':
+                output = plugin.handle_post(output)
+        except AttributeError:
+            pass
     return output
 
      
@@ -117,7 +118,7 @@ app = App()
 
 if sys.argv[1] == 'normal':
     set_logger()
-    run(host='localhost', port=8080)
+    run(host='localhost', port=SETTINGS['port'])
 else:
     d_runner = runner.DaemonRunner(app)
     d_runner.do_action()
