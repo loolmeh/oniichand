@@ -8,6 +8,7 @@ import re
 import logging
 import sys
 import os
+import json
 
 @route('/parse/<sent>')
 def parse(sent):
@@ -50,6 +51,40 @@ def furi(sent):
     furi = re.sub(r'\s\]', ']', furi)
     furi = process(furi)
     return furi
+
+
+@route('/correction/add/<entry>')
+def dict_add(entry):
+    entry = urllib.unquote(entry).decode('utf8')
+    entry = entry.split()
+    word = entry[0]
+    reading = entry[1]
+    logger.info('Add correction request for %s[%s]' % (word, reading))
+    dict[word] = reading
+    dict_dump()
+    return 'Successfully added %s[%s]' % (word, reading)
+
+
+@route('/correction/remove/<entry>')
+def dict_remove(entry):
+    entry = urllib.unquote(entry).decode('utf8')
+    entry = entry.split()
+    word = entry[0]
+    reading = entry[1]
+    logger.info('Remove correction request for %s[%s]' % (word, reading))
+    del dict[word]
+    dict_dump()
+    return 'Successfully removed %s[%s]' % (word, reading)
+
+@route('/correction/lookup/<entry>')
+def dict_lookup(entry):
+    word = urllib.unquote(entry).decode('utf8')
+    logger.info('Lookup correction request for %s' % (word))
+    try:
+        reading = dict[word]
+        return "%s[%s]" % (word, reading)
+    except KeyError:
+        return "Does not exist"
 
 
 logger = logging.getLogger("DaemonLog")
@@ -99,6 +134,24 @@ def process(input, mode='post'):
             pass
     return output
 
+
+dict = {}
+dict_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                'plugins',
+                'dict'
+                )
+
+def dict_load():
+    global dict
+    with open(dict_path, 'r') as f:
+        dict = json.load(f.read())
+
+
+def dict_dump():
+    with open(dict_path, 'w') as f:
+        f.write(json.dumps(dict, indent=4, separators=(',', ': ')))
+        
      
 class App(object):
 
@@ -112,12 +165,15 @@ class App(object):
     def run(self):
         set_logger()
         plugin_init()
+        dict_load()
         run(host='localhost', port=8080)
 
 app = App()
 
 if sys.argv[1] == 'normal':
     set_logger()
+    plugin_init()
+    dict_load()
     run(host='localhost', port=SETTINGS['port'])
 else:
     d_runner = runner.DaemonRunner(app)
