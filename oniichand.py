@@ -1,11 +1,13 @@
 from bottle import route, run
 from daemon import runner
 from settings import SETTINGS
+from importlib import import_module
 import urllib
 import MeCab
 import re
 import logging
 import sys
+import os
 
 @route('/parse/<sent>')
 def parse(sent):
@@ -46,22 +48,46 @@ def furi(sent):
 
 logger = logging.getLogger("DaemonLog")
 
+log_dict = {
+    'debug': logging.DEBUG,
+    'warn': logging.WARNING,
+    'info': logging.INFO,
+}
+
+
 def set_logger():
     log_set = SETTINGS['log_level']
-    if log_set == 'debug':
-        logger.setLevel(logging.DEBUG)
-    if log_set == 'warn':
-        logger.setLevel(logging.WARNING)
-    if log_set == 'info':
-        logger.setLevel(logging.INFO)
+    logger.setLevel(log_dict[log_set])
     formatter = logging.Formatter(fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler = logging.FileHandler(SETTINGS['log_dir'])
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
+
+
+plugins = []
+
+def plugin_init():
     
+    plugin_dir = SETTINGS['plugin_dir']
+    try:
+        plugin_list = os.listdir(plugin_dir)
+    except OSError:
+        plugin_list = []
+        logger.error('Cannot find or open plugin directory.')
+    plugin_list = [item for item in plugin_list if re.compile(r'\.py$').match(item)]
+    plugin_list = [item.replace('.py', '') for item in plugin_list]
+    plugins = [import_module(item) for item in plugin_list]
+
+
+def preprocess(input):
+    output = input
+    for plugin in plugins:
+        string = plugin.handle(string)
+    return output
     
-class App():
+     
+class App(object):
 
     def __init__(self):
         self.stdin_path = '/dev/null'
@@ -72,10 +98,10 @@ class App():
 
     def run(self):
         set_logger()
+        plugin_init()
         run(host='localhost', port=8080)
 
 app = App()
-
 
 if sys.argv[1] == 'normal':
     set_logger()

@@ -10,4 +10,8 @@ SETTINGS = {
                     os.path.dirname(os.path.abspath(__file__)),
                     'oniichan.pid'
                     ),
+    'plugin_dir': os.path.join(
+                       os.path.dirname(os.path.abspath(__file__)),
+                       'plugins'
+                       ),
 }
