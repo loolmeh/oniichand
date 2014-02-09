@@ -16,6 +16,7 @@ def parse(sent):
     sent = preprocess(sent)
     tagger = MeCab.Tagger('-Owakati')
     parsed = tagger.parse(sent.encode('utf8')).decode('utf8')
+    parsed = postprocess(parsed)
     return parsed
 
 
@@ -26,6 +27,7 @@ def kana(sent):
     sent = preprocess(sent)
     tagger = MeCab.Tagger('-Oyomi')
     kana = tagger.parse(sent.encode('utf8')).decode('utf8')
+    kana = postprocess(kana)
     return kana
 
 
@@ -46,6 +48,7 @@ def furi(sent):
         for word in words
         )
     furi = re.sub(r'\s\]', ']', furi)
+    furi = postprocess(furi)
     return furi
 
 
@@ -85,9 +88,16 @@ def plugin_init():
 def preprocess(input):
     output = input
     for plugin in plugins:
-        output = plugin.handle(output)
+        output = plugin.handle_pre(output)
     return output
-    
+
+
+def postprocess(input):
+    output = input
+    for plugin in plugins:
+        output = plugin.handle_post(output)
+    return output
+
      
 class App(object):
 
