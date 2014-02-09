@@ -13,6 +13,7 @@ import os
 def parse(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Parse request for %s' % (sent))
+    sent = preprocess(sent)
     tagger = MeCab.Tagger('-Owakati')
     parsed = tagger.parse(sent.encode('utf8')).decode('utf8')
     return parsed
@@ -22,6 +23,7 @@ def parse(sent):
 def kana(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Kana generation request for %s' % (sent))
+    sent = preprocess(sent)
     tagger = MeCab.Tagger('-Oyomi')
     kana = tagger.parse(sent.encode('utf8')).decode('utf8')
     return kana
@@ -31,6 +33,7 @@ def kana(sent):
 def furi(sent):
     sent = urllib.unquote(sent).decode('utf8')
     logger.info('Furigana generation request for %s' % (sent))
+    sent = preprocess(sent)
     wakati = MeCab.Tagger('-Owakati')
     yomi = MeCab.Tagger('-Oyomi')
     parsed = wakati.parse(sent.encode('utf8')).decode('utf8')
