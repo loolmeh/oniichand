@@ -68,7 +68,6 @@ def set_logger():
 plugins = []
 
 def plugin_init():
-    
     plugin_dir = SETTINGS['plugin_dir']
     try:
         plugin_list = os.listdir(plugin_dir)
@@ -83,7 +82,7 @@ def plugin_init():
 def preprocess(input):
     output = input
     for plugin in plugins:
-        string = plugin.handle(string)
+        output = plugin.handle(output)
     return output
     
      
