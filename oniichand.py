@@ -4,7 +4,6 @@ from settings import SETTINGS
 from importlib import import_module
 import urllib
 import MeCab
-import re
 import logging
 import sys
 import os
@@ -12,93 +11,129 @@ import json
 
 @route('/parse/<sent>')
 def parse(sent):
-    sent = urllib.unquote(sent).decode('utf8')
+    sent = url_decode(sent)
     logger.info('Parse request for %s' % (sent))
-    sent = process(sent, 'pre')
-    tagger = MeCab.Tagger('-Owakati')
-    parsed = tagger.parse(sent.encode('utf8')).decode('utf8')
-    parsed = process(parsed)
+    sent = process(sent, 'pre', 'parse')
+    parsed = mecab_parse(sent)
+    parsed = process(parsed, 'post', 'parse')
     return parsed
 
 
 @route('/kana/<sent>')
 def kana(sent):
-    sent = urllib.unquote(sent).decode('utf8')
+    sent = url_decode(sent)
     logger.info('Kana generation request for %s' % (sent))
-    sent = process(sent, 'pre')
-    tagger = MeCab.Tagger('-Oyomi')
-    kana = tagger.parse(sent.encode('utf8')).decode('utf8')
-    kana = process(kana)
+    sent = process(sent, 'pre', 'kana')
+    kana = mecab_kana(sent)
+    kana = process(kana, 'post', 'kana')
     return kana
 
 
 @route('/furi/<sent>')
 def furi(sent):
-    sent = urllib.unquote(sent).decode('utf8')
+    sent = url_decode(sent)
     logger.info('Furigana generation request for %s' % (sent))
-    sent = process(sent, 'pre')
-    wakati = MeCab.Tagger('-Owakati')
-    yomi = MeCab.Tagger('-Oyomi')
-    parsed = wakati.parse(sent.encode('utf8')).decode('utf8')
-    words = parsed.split()
-    furi = ' '.join(
-        '%s[%s]' % (
-            word, 
-            yomi.parse(word.encode('utf8')).decode('utf-8')
-            ) 
-        for word in words
-        )
-    furi = re.sub(r'\s\]', ']', furi)
-    furi = process(furi)
+    sent = process(sent, 'pre', 'furi')
+    furi = mecab_furi(sent)
+    furi = process(furi, 'post', 'furi')
     return furi
 
 
 @route('/correction/add/<entry>')
-def dict_add(entry):
-    entry = urllib.unquote(entry).decode('utf8')
+def dic_add(entry):
+    entry = url_decode(entry)
     entry = entry.split()
     word = entry[0]
     reading = entry[1]
+    try:
+        proxy = entry[2]
+        proxy = proxy.split(',')
+    except IndexError:
+        proxy = []
     logger.info('Add correction request for %s[%s]' % (word, reading))
-    dict[word] = reading
-    dict_dump()
-    return 'Successfully added %s[%s]' % (word, reading)
+    try:
+        if dic[word]:
+            proxy_list = dic[word]['proxy']
+            if proxy not in proxy_list:
+                for item in proxy:
+                    proxy_list.append(item)
+                dic[word]['proxy'] = proxy_list
+    except KeyError:
+        dic[word] = {'reading': reading, 'proxy': proxy}
+    dic_dump()
+    return 'Successfully added %s[%s] %s' % (word, reading, proxy)
 
 
 @route('/correction/remove/<entry>')
-def dict_remove(entry):
-    entry = urllib.unquote(entry).decode('utf8')
-    entry = entry.split()
-    word = entry[0]
-    reading = entry[1]
-    logger.info('Remove correction request for %s[%s]' % (word, reading))
-    del dict[word]
-    dict_dump()
+def dic_remove(entry):
+    entry = url_decode(entry)
+    logger.info('Remove correction request for %s[%s]' % (word))
+    del dic[word]
+    dic_dump()
     return 'Successfully removed %s[%s]' % (word, reading)
 
 @route('/correction/lookup/<entry>')
-def dict_lookup(entry):
-    word = urllib.unquote(entry).decode('utf8')
+def dic_lookup(entry):
+    word = url_decode(entry)
     logger.info('Lookup correction request for %s' % (word))
     try:
-        reading = dict[word]
-        return "%s[%s]" % (word, reading)
+        reading = dic[word]['reading']
+        proxy = dic[word]['proxy']
+        return "%s[%s] %s" % (word, reading, proxy)
     except KeyError:
         return "Does not exist"
 
 
+def url_decode(input):
+    return urllib.unquote(input).decode('utf8')
+
+
+wakati = ''
+yomi = ''
+
+def mecab_init():
+    global wakati
+    global yomi
+    wakati = MeCab.Tagger('-Owakati')
+    yomi = MeCab.Tagger('-Oyomi')
+
+
+def mecab_parse(input):
+    return wakati.parse(
+                input.encode('utf8')
+                ).decode('utf8')
+
+
+def mecab_kana(input):
+    return yomi.parse(
+                input.encode('utf8')
+                ).decode('utf8')
+
+
+def mecab_furi(input):
+    parsed = wakati.parse(input.encode('utf8')).decode('utf8')
+    words = parsed.split()
+    output = ' '.join(
+        '%s[%s]' % (
+            word, 
+            yomi.parse(word.encode('utf8')).decode('utf-8').strip()
+            ) 
+        for word in words
+        )
+    return output
+
+
 logger = logging.getLogger("DaemonLog")
 
-log_dict = {
+LOG_DIC = {
     'debug': logging.DEBUG,
     'warn': logging.WARNING,
     'info': logging.INFO,
 }
 
-
 def set_logger():
     log_set = SETTINGS['log_level']
-    logger.setLevel(log_dict[log_set])
+    logger.setLevel(LOG_DIC[log_set])
     formatter = logging.Formatter(fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler = logging.FileHandler(SETTINGS['log_dir'])
     handler.setFormatter(formatter)
@@ -115,42 +150,41 @@ def plugin_init():
     except OSError:
         plugin_list = []
         logger.error('Cannot find or open plugin directory.')
-    plugin_list = [item for item in plugin_list if re.compile(r'.*\.py$').match(item)]
-    plugin_list = [item.replace('.py', '') for item in plugin_list]
+    plugin_list = [item.replace('.py', '') for item in plugin_list if item.endswith('.py')]
     logger.debug('Plugins loaded: %s' % (plugin_list))
     global plugins
     plugins = [import_module('plugins.' + item) for item in plugin_list]
 
 
-def process(input, mode='post'):
+def process(input, mode='post', target='', args=[], kwargs={}):
     output = input
     for plugin in plugins:
         try:
-            if mode == 'pre':
-                output = plugin.handle_pre(output)
-            if mode == 'post':
-                output = plugin.handle_post(output)
+            output, args, kwargs = getattr(plugin, 'handle_%s_%s' % (mode, target))(output, args, kwargs)
+        except AttributeError:
+            pass
+    for plugin in plugins:
+        try:
+            output, args, kwargs = getattr(plugin, 'handle_%s_all' % (mode))(output, args, kwargs)
         except AttributeError:
             pass
     return output
 
 
-dict = {}
-dict_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                'plugins',
-                'dict'
-                )
+dic = {}
+dic_path = SETTINGS['dic_path']
 
-def dict_load():
-    global dict
-    with open(dict_path, 'r') as f:
-        dict = json.load(f.read())
+def dic_load():
+    global dic
+    try:
+        with open(dic_path, 'r') as f:
+            dic = json.loads(f.read())
+    except IOError:
+        logger.error('Could not load dictionary file.')
 
-
-def dict_dump():
-    with open(dict_path, 'w') as f:
-        f.write(json.dumps(dict, indent=4, separators=(',', ': ')))
+def dic_dump():
+    with open(dic_path, 'w') as f:
+        f.write(json.dumps(dic, indent=4, separators=(',', ': ')))
         
      
 class App(object):
@@ -162,19 +196,17 @@ class App(object):
         self.pidfile_path = SETTINGS['pid_dir']
         self.pidfile_timeout = 5
 
+    @classmethod
     def run(self):
         set_logger()
+        mecab_init()
         plugin_init()
-        dict_load()
-        run(host='localhost', port=8080)
-
-app = App()
+        dic_load()
+        run(host=SETTINGS['host'], port=SETTINGS['port'])
 
 if sys.argv[1] == 'normal':
-    set_logger()
-    plugin_init()
-    dict_load()
-    run(host='localhost', port=SETTINGS['port'])
+    App.run()
 else:
+    app = App()
     d_runner = runner.DaemonRunner(app)
     d_runner.do_action()

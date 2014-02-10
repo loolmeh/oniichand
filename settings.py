@@ -16,4 +16,10 @@ SETTINGS = {
                        base_path,
                        'plugins'
                        ),
+    'host': 'localhost',
+    'dic_path': os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    'plugins',
+                    'dic'
+                    )
 }
