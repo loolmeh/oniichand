@@ -1,4 +1,4 @@
-from bottle import route, run
+from bottle import route, run, request
 from daemon import runner
 from settings import SETTINGS
 from importlib import import_module
@@ -6,12 +6,12 @@ import urllib
 import MeCab
 import logging
 import sys
-import os
 import json
+import os
 
-@route('/parse/<sent>')
-def parse(sent):
-    sent = url_decode(sent)
+@route('/parse')
+def parse():
+    sent = url_decode(request.query.str)
     logger.info('Parse request for %s' % (sent))
     sent = process(sent, 'pre', 'parse')
     parsed = mecab_parse(sent)
@@ -19,9 +19,9 @@ def parse(sent):
     return parsed
 
 
-@route('/kana/<sent>')
-def kana(sent):
-    sent = url_decode(sent)
+@route('/kana')
+def kana():
+    sent = url_decode(request.query.str)
     logger.info('Kana generation request for %s' % (sent))
     sent = process(sent, 'pre', 'kana')
     kana = mecab_kana(sent)
@@ -29,9 +29,9 @@ def kana(sent):
     return kana
 
 
-@route('/furi/<sent>')
-def furi(sent):
-    sent = url_decode(sent)
+@route('/furigana')
+def furigana():
+    sent = url_decode(request.query.str)
     logger.info('Furigana generation request for %s' % (sent))
     sent = process(sent, 'pre', 'furi')
     furi = mecab_furi(sent)
@@ -39,36 +39,56 @@ def furi(sent):
     return furi
 
 
-@route('/correction/add/<entry>')
-def dic_add(entry):
-    entry = url_decode(entry)
-    entry = entry.split()
-    word = entry[0]
-    reading = entry[1]
-    try:
-        proxy = entry[2]
+@route('/correction/add')
+def dic_add():
+    word = url_decode(request.query.word)
+    if not word:
+        return "Error no word field."
+    reading = url_decode(request.query.reading)
+    if not reading:
+        return "Error no reading field."
+    proxy = url_decode(request.query.proxy) or []
+    if proxy:
         proxy = proxy.split(',')
-    except IndexError:
-        proxy = []
+    proximity = url_decode(request.query.proximity) or 0
     logger.info('Add correction request for %s[%s]' % (word, reading))
     try:
         if dic[word]:
-            proxy_list = dic[word]['proxy']
-            if proxy not in proxy_list:
-                for item in proxy:
-                    proxy_list.append(item)
-                dic[word]['proxy'] = proxy_list
+            entry_list = dic[word]
+            for num, entry in enumerate(entry_list):
+                if reading == entry['reading']:
+                    proxy_list = entry['proxy']
+                    for item in proxy:
+                        if item not in proxy_list:
+                            proxy_list.append(item)
+                    dic[word][num]['proxy'] = proxy_list
+                    if proximity != entry['proximity']:
+                        dic[word][num]['proximity'] = proximity
+                else:
+                    new_entry = {'reading': reading, 'proxy': proxy, 'proximity': proximity}
+                    dic[word].append(new_entry)
     except KeyError:
-        dic[word] = {'reading': reading, 'proxy': proxy}
+        dic[word] = [{'reading': reading, 'proxy': proxy, 'proximity': proximity}]
     dic_dump()
-    return 'Successfully added %s[%s] %s' % (word, reading, proxy)
+    return 'Successfully added %s[%s] %s %s' % (word, reading, proxy, proximity)
 
 
-@route('/correction/remove/<entry>')
-def dic_remove(entry):
-    entry = url_decode(entry)
-    logger.info('Remove correction request for %s[%s]' % (word))
-    del dic[word]
+@route('/correction/remove')
+def dic_remove():
+    word = url_decode(request.query.word)
+    reading = url_decode(request.query.reading)
+    logger.info('Remove correction request for %s[%s]' % (word, reading))
+    if not reading:
+        del dic[word]
+    try:
+        for num, entry in enumerate(dic[word]):
+            entry_reading = entry['reading']
+            if entry_reading == reading:
+                del dic[word][num]
+                if not dic[word]:
+                    del dic[word]
+    except KeyError:
+        pass
     dic_dump()
     return 'Successfully removed %s[%s]' % (word, reading)
 
@@ -85,7 +105,7 @@ def dic_lookup(entry):
 
 
 def url_decode(input):
-    return urllib.unquote(input).decode('utf8')
+    return urllib.unquote(input)
 
 
 wakati = ''
@@ -151,6 +171,7 @@ def plugin_init():
         plugin_list = []
         logger.error('Cannot find or open plugin directory.')
     plugin_list = [item.replace('.py', '') for item in plugin_list if item.endswith('.py')]
+    del plugin_list[0]
     logger.debug('Plugins loaded: %s' % (plugin_list))
     global plugins
     plugins = [import_module('plugins.' + item) for item in plugin_list]
@@ -158,6 +179,10 @@ def plugin_init():
 
 def process(input, mode='post', target='', args=[], kwargs={}):
     output = input
+    kwargs['mecab_parse'] = mecab_parse
+    kwargs['mecab_kana'] = mecab_kana
+    kwargs['dic'] = dic
+    kwargs['logger'] = logger
     for plugin in plugins:
         try:
             output, args, kwargs = getattr(plugin, 'handle_%s_%s' % (mode, target))(output, args, kwargs)
@@ -203,7 +228,7 @@ class App(object):
         plugin_init()
         dic_load()
         run(host=SETTINGS['host'], port=SETTINGS['port'])
-
+        
 if sys.argv[1] == 'normal':
     App.run()
 else:
