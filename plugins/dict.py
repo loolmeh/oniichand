@@ -13,15 +13,18 @@ def handle_pre_furi(input, args, kwargs):
     logger.debug('dic: %s' % (dic))
     for word in parsed:
         try:
-            entry = dic[word]
-            reading = dic[word]['reading']
-            try:
-                proxy = dic[word]['proxy']
-                proxy = dic[word]['proximity']
-                proxy_dic[word]['reading'] = reading
-                proxy_dic[word]['proxy'] = proxy
-            except KeyError:
-                sub_dic[word] = reading
+            for entry in dic[word]:
+                reading = entry['reading']
+                proxy = entry['proxy']
+                if proxy:
+                    proximity = entry['proximity']
+                    proxy_dic[word] = []
+                    proxy_entry['reading'] = reading
+                    proxy_entry['proxy'] = proxy
+                    proxy_entry['proximity'] = proximity
+                    proxy_dic[word].append(proxy_entry)
+                else:
+                    sub_dic[word] = reading
         except KeyError:
             pass
     logger.debug('sub_dic: %s' % (sub_dic))

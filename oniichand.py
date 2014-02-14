@@ -1,4 +1,4 @@
-from bottle import route, run, request
+from bottle import route, run, request, abort
 from daemon import runner
 from settings import SETTINGS
 from importlib import import_module
@@ -43,14 +43,15 @@ def furigana():
 def dic_add():
     word = url_decode(request.query.word)
     if not word:
-        return "Error no word field."
+        abort(400, "Error no word field.")
     reading = url_decode(request.query.reading)
     if not reading:
-        return "Error no reading field."
+        abort(400, "Error no reading field.")
     proxy = url_decode(request.query.proxy) or []
     if proxy:
         proxy = proxy.split(',')
     proximity = url_decode(request.query.proximity) or 0
+    proximity = int(proximity)
     logger.info('Add correction request for %s[%s]' % (word, reading))
     try:
         if dic[word]:
@@ -92,16 +93,21 @@ def dic_remove():
     dic_dump()
     return 'Successfully removed %s[%s]' % (word, reading)
 
-@route('/correction/lookup/<entry>')
-def dic_lookup(entry):
-    word = url_decode(entry)
+@route('/correction/lookup')
+def dic_lookup():
+    word = url_decode(request.query.word)
     logger.info('Lookup correction request for %s' % (word))
     try:
-        reading = dic[word]['reading']
-        proxy = dic[word]['proxy']
-        return "%s[%s] %s" % (word, reading, proxy)
+        entries = dic[word]
+        output = ''
+        for entry in entries:
+            reading = entry['reading']
+            proxy = entry['proxy']
+            proximity = entry['proximity']
+            output += '%s[%s] %s %s| ' % (word, reading, proxy, proximity) 
+        return output
     except KeyError:
-        return "Does not exist"
+        abort(400, "Does not exist.")
 
 
 def url_decode(input):
@@ -137,7 +143,7 @@ def mecab_furi(input):
         '%s[%s]' % (
             word, 
             yomi.parse(word.encode('utf8')).decode('utf-8').strip()
-            ) 
+            )
         for word in words
         )
     return output
@@ -205,7 +211,9 @@ def dic_load():
         with open(dic_path, 'r') as f:
             dic = json.loads(f.read())
     except IOError:
-        logger.error('Could not load dictionary file.')
+        logger.error('Could not open dictionary file.')
+    except ValueError:
+        logger.error('Could not load dictionary, empty file.')
 
 def dic_dump():
     with open(dic_path, 'w') as f:
