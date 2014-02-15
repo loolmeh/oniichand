@@ -68,6 +68,7 @@ def dic_add():
                 else:
                     if proximity == entry['proximity'] and not entry['proxy'] and not proxy:
                         abort(400, "Error, proximity and proxy clash.")
+                    new_entry = {}
                     new_entry['reading'] = reading
                     new_entry['proxy'] = proxy
                     new_entry['proximity'] = proximity
