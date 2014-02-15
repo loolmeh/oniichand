@@ -8,7 +8,7 @@ def handle_pre_furi(input, args, kwargs):
     parsed = parsed.split()
     sub_dic = {}
     proxy_dic = {}
-    
+
     logger.debug('dic: %s' % (dic))
     for word in parsed:
         try:
@@ -30,7 +30,7 @@ def handle_pre_furi(input, args, kwargs):
             pass
     logger.debug('sub_dic: %s' % (sub_dic))
     logger.debug('proxy_dic: %s' % (proxy_dic))
-    
+
     logger.debug('initial string list: %s' % (parsed))
     furi = ''
     for num, word in enumerate(parsed):
@@ -79,7 +79,7 @@ def handle_pre_furi(input, args, kwargs):
                         logger.debug('no proxies match, running it through mecab')
                         fword = '%s[%s] ' % (word, mecab_kana(word).strip())
                 furi += fword
-                                                     
+
             except KeyError:
                 logger.debug('not found in sub/proxy dics, running it straight through mecab')
                 kana = mecab_kana(word).strip()
@@ -88,10 +88,10 @@ def handle_pre_furi(input, args, kwargs):
                 else:
                     fword = '%s[%s] ' % (word, kana)
                 furi += fword
-                
+
     kwargs['furi'] = furi
     return input, args, kwargs
-    
+
 def handle_post_furi(input, args, kwargs):
     input = kwargs['furi']
     return input, args, kwargs

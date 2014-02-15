@@ -63,8 +63,8 @@ def dic_add():
         for num, entry in enumerate(dic[word]):
             if reading == entry['reading']:
                 proxy_list = entry['proxy']
-                proxy_list.extend(item 
-                                  for item in proxy 
+                proxy_list.extend(item
+                                  for item in proxy
                                   if item not in proxy_list
                                   )
                 dic[word][num]['proxy'] = proxy_list
@@ -110,7 +110,7 @@ def dic_lookup():
             reading = entry['reading']
             proxy = entry['proxy']
             proximity = entry['proximity']
-            output += '%s[%s] %s %s| ' % (word, reading, proxy, proximity) 
+            output += '%s[%s] %s %s| ' % (word, reading, proxy, proximity)
         return output
     except KeyError:
         abort(400, "Does not exist.")
@@ -147,7 +147,7 @@ def mecab_furi(input):
     words = parsed.split()
     output = ' '.join(
         '%s[%s]' % (
-            word, 
+            word,
             yomi.parse(word.encode('utf8')).decode('utf-8').strip()
             )
         for word in words
@@ -224,8 +224,8 @@ def dic_load():
 def dic_dump():
     with open(dic_path, 'w') as f:
         f.write(json.dumps(dic, indent=4, separators=(',', ': '), ensure_ascii=False, encoding='utf-8').encode('utf-8'))
-        
-     
+
+
 class App(object):
 
     def __init__(self):
@@ -242,7 +242,7 @@ class App(object):
         plugin_init()
         dic_load()
         run(host=SETTINGS['host'], port=SETTINGS['port'])
-        
+
 if sys.argv[1] == 'normal':
     App.run()
 else:
