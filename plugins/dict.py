@@ -61,7 +61,13 @@ def handle_pre_furi(input, args, kwargs):
                                 subs_done.append(True)
                         else:
                             logger.debug('proximity level, checking according to specified distance')
-                            if proxy == parsed[num+proximity] or proxy == parsed[num-proximity]:
+                            ahead = num + proximity
+                            if ahead > len(parsed) - 1:
+                                ahead = len(parsed) - 1
+                            behind = num - proximity
+                            if behind < 0:
+                                behind = 0
+                            if proxy == parsed[ahead] or proxy == parsed[behind]:
                                 logger.debug('found proxy at proximity level')
                                 found.append(True)
                                 subs_done.append(True)

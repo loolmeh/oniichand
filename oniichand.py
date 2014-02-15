@@ -53,28 +53,29 @@ def dic_add():
     proximity = url_decode(request.query.proximity) or 0
     proximity = int(proximity)
     logger.info('Add correction request for %s[%s]' % (word, reading))
-    try:
-        if dic[word]:
-            entry_list = dic[word]
-            for num, entry in enumerate(entry_list):
-                if reading == entry['reading']:
-                    proxy_list = entry['proxy']
-                    for item in proxy:
-                        if item not in proxy_list:
-                            proxy_list.append(item)
-                    dic[word][num]['proxy'] = proxy_list
-                    if proximity != entry['proximity']:
-                        dic[word][num]['proximity'] = proximity
-                else:
-                    if proximity == entry['proximity'] and not entry['proxy'] and not proxy:
-                        abort(400, "Error, proximity and proxy clash.")
-                    new_entry = {}
-                    new_entry['reading'] = reading
-                    new_entry['proxy'] = proxy
-                    new_entry['proximity'] = proximity
-                    dic[word].append(new_entry)
-    except KeyError:
-        dic[word] = [{'reading': reading, 'proxy': proxy, 'proximity': proximity}]
+    if word not in dic:
+        new_entry = {}
+        new_entry['reading'] = reading
+        new_entry['proxy'] = proxy
+        new_entry['proximity'] = proximity
+        dic[word] = [new_entry]
+    else:
+        for num, entry in enumerate(dic[word]):
+            if reading == entry['reading']:
+                proxy_list = entry['proxy']
+                proxy_list.extend(item 
+                                  for item in proxy 
+                                  if item not in proxy_list
+                                  )
+                dic[word][num]['proxy'] = proxy_list
+                if proximity != entry['proximity']:
+                    dic[word][num]['proximity'] = proximity
+            else:
+                new_entry = {}
+                new_entry['reading'] = reading
+                new_entry['proxy'] = proxy
+                new_entry['proximity'] = proximity
+                dic[word].append(new_entry)
     dic_dump()
     return 'Successfully added %s[%s] %s %s' % (word, reading, proxy, proximity)
 
