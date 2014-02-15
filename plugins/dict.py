@@ -35,6 +35,7 @@ def handle_pre_furi(input, args, kwargs):
         try:
             reading = sub_dic[word]
             fword = '%s[%s] ' % (word, reading)
+            
             logger.debug('exists in sub_dic, furi generated')
         except KeyError:
             kana = mecab_kana(word).strip()
